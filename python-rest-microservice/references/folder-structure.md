@@ -44,7 +44,7 @@ Calls always flow one way: **api → services → repositories**.
 
 | Choice | Where it goes |
 |---|---|
-| Data store | A new repository class in `repositories/` that implements the same interface, plus a one-line change in `main.py` |
+| Data store | A new repository class in `repositories/` that implements the same interface, plus a one-line change in `main.py`. Driver and connection details come from the matching data-store skill or MCP server |
 | Auth provider | A dependency in `dependencies.py` that routes can require |
 | Cloud / IaC | Outside the app code (e.g. an `infra/` folder or a separate repo), handled by the matching skill |
 

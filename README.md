@@ -1,6 +1,6 @@
 # Python REST Microservice Skill: Draft
 
-**Status:** DRAFT v0.2 for CapTech Python CoP review
+**Status:** DRAFT v0.3 for CapTech Python CoP review
 
 An [Agent Skill](https://docs.claude.com/en/docs/claude-code/skills) that implements the CoP's *REST Microservice Architecture Skill Spec* for Python. It's kept deliberately small so it can be used on any client engagement: it requires only **FastAPI** and **pytest**, and it follows whatever other tooling the client already has.
 
@@ -41,9 +41,11 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]" && pytest
 ```
 
-## Open questions for the CoP
+## Decisions
 
-1. Should we name an officially supported alternative to FastAPI (e.g. Django REST Framework)?
-2. Is an 80% coverage minimum right?
-3. Should the skill recommend a linter/formatter, or always defer to the client's?
-4. Should the skill include guides for wiring up common data stores (PostgreSQL, DynamoDB, Cosmos DB), or leave that to other skills?
+| # | Question | Decision |
+|---|---|---|
+| 1 | Name an officially supported alternative to FastAPI? | No. FastAPI is the only supported framework |
+| 2 | Coverage minimum? | 80% |
+| 3 | Recommend a linter/formatter? | No. Always defer to the client's tooling |
+| 4 | Include data-store wiring guides (PostgreSQL, DynamoDB, Cosmos DB)? | No. Other skills/MCP servers handle data stores |

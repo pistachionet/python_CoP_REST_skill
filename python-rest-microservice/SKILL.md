@@ -49,7 +49,7 @@ Work in this order, one resource at a time (the details are in [references/folde
 4. **Route** (`api/`): thin handler that calls the service.
 5. **Tests**: unit tests for the service, integration tests for the endpoints.
 
-When the data store is chosen, add a repository class for it that implements the same interface, then switch the one line in `main.py` that creates the repository. Services and routes don't change.
+When the data store is chosen, add a repository class for it that implements the same interface, then switch the one line in `main.py` that creates the repository. Services and routes don't change. This skill doesn't cover data-store specifics (drivers, connections, migrations); get those from the matching data-store skill or MCP server.
 
 ## Step 4: Done means
 

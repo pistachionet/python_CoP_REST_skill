@@ -7,7 +7,7 @@
 - Built-in dependency injection makes the service easy to test.
 - It needs nothing beyond `fastapi[standard]`, which bundles the uvicorn server and the test client.
 
-If a client has already standardised on another framework (Django REST Framework, Flask), follow theirs and keep the same folder layering and testing rules.
+FastAPI is the only supported framework for this standard.
 
 ## Conventions
 
