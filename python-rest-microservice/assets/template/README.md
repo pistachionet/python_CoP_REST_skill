@@ -1,27 +1,23 @@
 # example-service
 
-Reference REST microservice built to the CapTech Python CoP architecture standard
-(FastAPI · SQLAlchemy async · PostgreSQL · uv · pytest).
+Example REST microservice following the CapTech Python CoP standard (FastAPI + pytest).
 
 ## Run locally
 
 ```bash
-uv sync
-cp .env.example .env                          # then edit; never commit .env
-uv run alembic upgrade head                   # apply migrations
-uv run uvicorn app.main:app --reload          # http://localhost:8000/docs
+python -m venv .venv && source .venv/bin/activate   # or use Poetry / uv if the client does
+pip install -e ".[dev]"
+uvicorn app.main:app --reload                        # API docs at http://localhost:8000/docs
 ```
 
-## Quality gates
+## Test
 
 ```bash
-uv run ruff format --check . && uv run ruff check .
-uv run mypy
-uv run pytest -m "not integration" --no-cov   # fast unit loop, no Docker
-uv run pytest                                 # unit + integration (Docker) + coverage gate
+pytest                      # all tests + coverage check (80% minimum)
+pytest tests/unit           # unit tests only
+pytest tests/integration    # integration tests only
 ```
 
 ## Configuration
 
-All settings are environment variables prefixed with `APP_`; see `src/app/core/config.py`
-and `.env.example`.
+Environment variables only: `SERVICE_NAME`, `ENVIRONMENT` (see `src/app/config.py`).

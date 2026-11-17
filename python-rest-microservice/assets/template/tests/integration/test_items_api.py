@@ -1,86 +1,82 @@
-"""Integration tests: HTTP → service → repository → PostgreSQL, through the real app."""
+"""Integration tests: send real HTTP requests through the whole app (routes -> service ->
+repository). Once the service uses a real data store, these run against a test instance of it."""
 
-import asyncio
-import uuid
+from uuid import uuid4
 
-import httpx
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine
+import pytest
+from fastapi.testclient import TestClient
 
 ITEMS = "/api/v1/items"
 
 
-async def _create(client: httpx.AsyncClient, name: str, price: str = "1.00") -> dict[str, str]:
-    response = await client.post(ITEMS, json={"name": name, "price": price})
-    assert response.status_code == 201, response.text
-    body: dict[str, str] = response.json()
-    return body
+def test_health_check(client: TestClient) -> None:
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
 
 
-async def test_crud_lifecycle(client: httpx.AsyncClient) -> None:
-    created = await _create(client, "Widget", "9.99")
-    url = f"{ITEMS}/{created['id']}"
+def test_create_then_get_item(client: TestClient) -> None:
+    created = client.post(ITEMS, json={"name": "Widget", "quantity": 3})
 
-    fetched = await client.get(url)
+    assert created.status_code == 201
+    item_id = created.json()["id"]
+
+    fetched = client.get(f"{ITEMS}/{item_id}")
     assert fetched.status_code == 200
-    assert fetched.json() == created
-
-    patched = await client.patch(url, json={"description": "Now with more widget"})
-    assert patched.status_code == 200
-    assert patched.json()["description"] == "Now with more widget"
-    assert patched.json()["updated_at"] >= created["updated_at"]
-
-    assert (await client.delete(url)).status_code == 204
-    assert (await client.get(url)).status_code == 404
+    assert fetched.json() == {"id": item_id, "name": "Widget", "description": None, "quantity": 3}
 
 
-async def test_create_is_committed_to_the_database(
-    client: httpx.AsyncClient, engine: AsyncEngine
-) -> None:
-    created = await _create(client, "Persisted", "2.50")
+def test_list_items(client: TestClient) -> None:
+    client.post(ITEMS, json={"name": "Widget"})
+    client.post(ITEMS, json={"name": "Gadget"})
 
-    async with engine.connect() as conn:
-        row = (
-            await conn.execute(
-                text("SELECT name, price FROM items WHERE id = :id"),
-                {"id": uuid.UUID(created["id"])},
-            )
-        ).one()
+    response = client.get(ITEMS)
 
-    assert row.name == "Persisted"
-    assert str(row.price) == "2.50"
+    assert response.status_code == 200
+    assert sorted(item["name"] for item in response.json()) == ["Gadget", "Widget"]
 
 
-async def test_duplicate_name_returns_409(client: httpx.AsyncClient) -> None:
-    await _create(client, "Unique")
+def test_replace_item(client: TestClient) -> None:
+    item_id = client.post(ITEMS, json={"name": "Widget"}).json()["id"]
 
-    response = await client.post(ITEMS, json={"name": "Unique", "price": "1.00"})
+    response = client.put(f"{ITEMS}/{item_id}", json={"name": "Widget", "quantity": 9})
+
+    assert response.status_code == 200
+    assert response.json()["quantity"] == 9
+
+
+def test_delete_item(client: TestClient) -> None:
+    item_id = client.post(ITEMS, json={"name": "Widget"}).json()["id"]
+
+    assert client.delete(f"{ITEMS}/{item_id}").status_code == 204
+    assert client.get(f"{ITEMS}/{item_id}").status_code == 404
+
+
+def test_duplicate_name_returns_409(client: TestClient) -> None:
+    client.post(ITEMS, json={"name": "Widget"})
+
+    response = client.post(ITEMS, json={"name": "Widget"})
 
     assert response.status_code == 409
-    assert response.headers["content-type"] == "application/problem+json"
+    assert "already exists" in response.json()["detail"]
 
 
-async def test_list_paginates_in_creation_order(client: httpx.AsyncClient) -> None:
-    for name in ["first", "second", "third"]:
-        await _create(client, name)
-        await asyncio.sleep(0.01)  # distinct created_at values
+def test_unknown_item_returns_404(client: TestClient) -> None:
+    response = client.get(f"{ITEMS}/{uuid4()}")
 
-    response = await client.get(ITEMS, params={"limit": 2, "offset": 1})
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["total"] == 3
-    assert [i["name"] for i in body["items"]] == ["second", "third"]
+    assert response.status_code == 404
 
 
-async def test_unknown_id_returns_404(client: httpx.AsyncClient) -> None:
-    for method in ("GET", "PATCH", "DELETE"):
-        response = await client.request(method, f"{ITEMS}/{uuid.uuid4()}", json={})
-        assert response.status_code == 404, method
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},                                   # name missing
+        {"name": ""},                         # name empty
+        {"name": "Widget", "quantity": -1},   # quantity negative
+    ],
+)
+def test_invalid_body_returns_422(client: TestClient, body: dict[str, object]) -> None:
+    response = client.post(ITEMS, json=body)
 
-
-async def test_readiness_reports_database_up(client: httpx.AsyncClient) -> None:
-    response = await client.get("/health/ready")
-
-    assert response.status_code == 200
-    assert response.json()["checks"] == {"database": "up"}
+    assert response.status_code == 422
